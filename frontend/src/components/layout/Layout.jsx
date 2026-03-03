@@ -10,14 +10,23 @@ const Layout = () => {
 
   const handleLogout = () => {
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true }); // logout ke baad login page (root)
   };
 
   const navItems = [
-    { name: "Dashboard", path: "/" },
+    { name: "Dashboard", path: "/dashboard" },
     { name: "Billing", path: "/billing" },
     { name: "Reports", path: "/reports" },
   ];
+
+  const currentTitle =
+    location.pathname === "/dashboard"
+      ? "Dashboard"
+      : location.pathname === "/billing"
+      ? "Billing"
+      : location.pathname === "/reports"
+      ? "Reports"
+      : "";
 
   return (
     <div className="h-screen flex bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -40,12 +49,11 @@ const Layout = () => {
             <NavLink
               key={item.path}
               to={item.path}
-              end={item.path === "/"}
               className={({ isActive }) =>
                 [
                   "block px-3 py-2 rounded-md text-sm font-medium transition-all",
                   isActive
-                    ? "bg-gradient-to-r from-rk-primary to-rk-accent text-white shadow-soft"
+                    ? "bg-gradient-to-r from-rk-primary to-rk-accent text-slate-900 shadow-soft"
                     : "text-slate-200 hover:bg-slate-800/70 hover:text-white",
                 ].join(" ")
               }
@@ -82,19 +90,13 @@ const Layout = () => {
               Billing Management
             </div>
             <div className="text-sm font-semibold text-slate-900 dark:text-silver">
-              {location.pathname === "/"
-                ? "Dashboard"
-                : location.pathname === "/billing"
-                ? "Billing"
-                : location.pathname === "/reports"
-                ? "Reports"
-                : ""}
+              {currentTitle}
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {/* <div className="hidden sm:block text-[11px] text-slate-600 dark:text-slate-400">
+            <div className="hidden sm:block text-[11px] text-slate-600 dark:text-slate-400">
               React • Spring Boot • JWT
-            </div> */}
+            </div>
             <button
               onClick={toggleTheme}
               className="text-[11px] px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-sm"

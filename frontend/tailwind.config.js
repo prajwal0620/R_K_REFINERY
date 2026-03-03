@@ -8,15 +8,21 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Silver text / borders ke liye rakh sakte ho
         silver: {
-          DEFAULT: "#d1d5db",
+          DEFAULT: "#e5e7eb", // light silver
           dark: "#9ca3af",
         },
+        // GOLD + WHITE THEME
         rk: {
-          primary: "#0ea5e9",      // Sky blue
-          primaryDark: "#0369a1",  // Darker sky
-          accent: "#6366f1",       // Indigo
-          accentSoft: "#e0f2fe",   // Light sky
+          // main gold
+          primary: "#facc15",      // Tailwind amber-400 (bright gold)
+          // darker gold (hover / sidebar start)
+          primaryDark: "#a16207",  // amber-700
+          // soft warm white / light gold (background accents)
+          accent: "#fef3c7",       // amber-100
+          // very light off-white (header / soft sections)
+          accentSoft: "#fffbeb",   // amber-50
         },
       },
       boxShadow: {

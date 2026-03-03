@@ -10,18 +10,25 @@ import ProtectedRoute from "./routes/ProtectedRoute.jsx";
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      {/* Root par hi LoginPage */}
+      <Route path="/" element={<LoginPage />} />
 
+      {/* Agar koi /login type kare to bhi login hi dikhao */}
+      <Route path="/login" element={<Navigate to="/" replace />} />
+
+      {/* Protected area */}
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/billing" element={<BillingPage />} />
           <Route path="/reports" element={<ReportsPage />} />
         </Route>
       </Route>
 
+      {/* Not found */}
       <Route path="/404" element={<NotFoundPage />} />
-      <Route path="*" element={<Navigate to="/404" replace />} />
+      {/* Baaki sab ko root (login) pe bhej do */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

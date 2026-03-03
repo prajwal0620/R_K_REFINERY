@@ -12,7 +12,8 @@ const LoginPage = () => {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const from = location.state?.from || "/";
+  // Agar ProtectedRoute se aya hai to from use karo, warna /dashboard
+  const from = location.state?.from || "/dashboard";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,7 +80,7 @@ const LoginPage = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-gradient-to-r from-rk-primary to-rk-accent text-white font-medium text-sm py-2 rounded-md hover:from-rk-primaryDark hover:to-rk-accent transition-colors disabled:opacity-70"
+            className="w-full bg-gradient-to-r from-rk-primary to-rk-accent text-slate-900 font-medium text-sm py-2 rounded-md hover:from-rk-primaryDark hover:to-rk-accent transition-colors disabled:opacity-70"
           >
             {submitting ? "Logging in..." : "Login"}
           </button>
