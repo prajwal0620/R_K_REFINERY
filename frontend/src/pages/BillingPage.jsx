@@ -26,9 +26,20 @@ const openPrintForBill = (bill) => {
     (line) => `<div>${line}</div>`
   ).join("");
 
+  // Total weight / purity from items (safety)
+  const items = bill.items || [];
+  const totalWeight = items.reduce(
+    (sum, it) => sum + (Number(it.weight) || 0),
+    0
+  );
+  const totalPurity = items.reduce(
+    (sum, it) => sum + (Number(it.purity) || 0),
+    0
+  );
+
   const itemsRows =
-    bill.items && bill.items.length
-      ? bill.items
+    items.length > 0
+      ? items
           .map(
             (it, idx) => `
       <tr>
@@ -48,8 +59,6 @@ const openPrintForBill = (bill) => {
           )
           .join("")
       : `<tr><td colspan="5">No items</td></tr>`;
-
-  const totalPurity = Number(bill.totalPurity || 0).toFixed(2);
 
   const html = `
 <html>
@@ -96,7 +105,8 @@ const openPrintForBill = (bill) => {
       </tbody>
     </table>
     <div class="small totals">
-      <div>Total Purity: <strong>${totalPurity} g</strong></div>
+      <div>Total Weight: <strong>${totalWeight.toFixed(2)} g</strong></div>
+      <div>Total Purity: <strong>${totalPurity.toFixed(2)} g</strong></div>
     </div>
     <div class="center small" style="margin-top:6px;">
       Thank You Visit Again
@@ -117,7 +127,7 @@ const openPrintForBill = (bill) => {
     Swal.fire({
       icon: "info",
       title: "Pop‑up Blocked",
-      text: "Please allow pop‑ups in your browser to print the bill.",
+      text: "Print ke liye browser me pop‑ups allow karein.",
     });
     return;
   }
@@ -134,7 +144,7 @@ const BillingPage = () => {
   const [customerName, setCustomerName] = useState("");
   const [mobile, setMobile] = useState("");
   const [date, setDate] = useState(todayStr);
-  const [ratePerGram, setRatePerGram] = useState(75);
+  const [ratePerGram, setRatePerGram] = useState(75); // backend ke liye, UI me nahi dikhate
   const [items, setItems] = useState([createEmptyItem()]);
   const [saving, setSaving] = useState(false);
   const [lastSavedBill, setLastSavedBill] = useState(null);
@@ -166,12 +176,14 @@ const BillingPage = () => {
     );
   };
 
+  const totalWeight = items.reduce(
+    (sum, i) => sum + (Number(i.weight) || 0),
+    0
+  );
   const totalPurity = items.reduce(
     (sum, i) => sum + (Number(i.purity) || 0),
     0
   );
-  const totalAmount =
-    Number(ratePerGram) > 0 ? totalPurity * Number(ratePerGram) : 0;
 
   const resetForm = () => {
     setCustomerName("");
@@ -179,7 +191,7 @@ const BillingPage = () => {
     setDate(todayStr);
     setRatePerGram(75);
     setItems([createEmptyItem()]);
-    // lastSavedBill ko rehne dete hain taaki WA bhej sake
+    // lastSavedBill ko rehne dete hain taaki WhatsApp bhej sake
   };
 
   const handleSave = async () => {
@@ -270,7 +282,6 @@ const BillingPage = () => {
       customerName,
       mobile,
       items: cleanedItems,
-      totalPurity,
     };
     openPrintForBill(tempBill);
   };
@@ -301,6 +312,7 @@ const BillingPage = () => {
     const bill = lastSavedBill;
     const lines = [];
 
+    // Header
     lines.push(`*${SHOP_INFO_LINES[0]}*`);
     for (let i = 1; i < SHOP_INFO_LINES.length; i++) {
       lines.push(SHOP_INFO_LINES[i]);
@@ -326,11 +338,20 @@ const BillingPage = () => {
       );
     });
 
+    // Summary
+    const totalW = (bill.items || []).reduce(
+      (sum, it) => sum + (Number(it.weight) || 0),
+      0
+    );
+    const totalP = (bill.items || []).reduce(
+      (sum, it) => sum + (Number(it.purity) || 0),
+      0
+    );
+
     lines.push("");
     lines.push("────────────────────────");
-    lines.push(
-      `✨ *Total Purity:* ${Number(bill.totalPurity || 0).toFixed(2)} g`
-    );
+    lines.push(`⚖ *Total Weight:* ${totalW.toFixed(2)} g`);
+    lines.push(`✨ *Total Purity:* ${totalP.toFixed(2)} g`);
     lines.push("🙏 *Thank You, Visit Again*");
 
     const text = encodeURIComponent(lines.join("\n"));
@@ -338,179 +359,217 @@ const BillingPage = () => {
     window.open(url, "_blank");
   };
 
+  const nonEmptyItemsCount = items.filter(
+    (i) => Number(i.weight) > 0 || Number(i.touch) > 0
+  ).length;
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-base font-semibold text-silver">Billing</h1>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
-          Silver exchange bill banaye, automatic purity calculation ke sath.
+        <h1 className="text-base font-semibold text-slate-800">
+          Billing
+        </h1>
+        <p className="text-xs text-slate-500">
+          Silver exchange bill banaye, automatic weight & purity calculation ke sath.
         </p>
       </div>
 
-      {/* Customer Details */}
-      <div className="relative overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 space-y-3 shadow-soft dark:shadow-softDark">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rk-primary to-rk-accent" />
-        <div className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-          Customer Details
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
-              Customer Name
-            </label>
-            <input
-              type="text"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Customer Name"
-            />
+      {/* Main Layout: left content, right summary */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* LEFT: Customer + Items */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Customer Details */}
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-3 shadow-soft">
+            <div className="text-xs font-semibold text-slate-700">
+              Customer Details
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-slate-700 mb-1">
+                  Customer Name
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Customer Name"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 mb-1">
+                  Mobile Number
+                </label>
+                <input
+                  type="tel"
+                  className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
+                  placeholder="10-digit mobile"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
-              Mobile Number
-            </label>
-            <input
-              type="tel"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-              value={mobile}
-              onChange={(e) => setMobile(e.target.value)}
-              placeholder="10-digit mobile"
-            />
-          </div>
-          <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
-              Date
-            </label>
-            <input
-              type="date"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
 
-      {/* Items Table */}
-      <div className="relative overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 space-y-3 shadow-soft dark:shadow-softDark">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rk-primary to-rk-accent" />
-        <div className="mt-2 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-            Items
-          </div>
-          <button
-            onClick={addItemRow}
-            className="text-[11px] px-2 py-1 rounded-md border border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            + Add Item
-          </button>
-        </div>
+          {/* Items Table */}
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-3 shadow-soft">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-semibold text-slate-700">
+                Items
+              </div>
+              <button
+                onClick={addItemRow}
+                className="text-[11px] px-2 py-1 rounded-md border border-slate-300 text-slate-800 hover:bg-slate-100"
+              >
+                + Add Item
+              </button>
+            </div>
 
-        <div className="overflow-auto">
-          <table className="min-w-full text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
-                <th className="py-1 px-2 text-left">Description / Number</th>
-                <th className="py-1 px-2 text-right">Weight (g)</th>
-                <th className="py-1 px-2 text-right">Touch (%)</th>
-                <th className="py-1 px-2 text-right">Purity (g)</th>
-                <th className="py-1 px-2 text-center w-10">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-slate-200 dark:border-slate-800 last:border-0"
-                >
-                  <td className="py-1.5 px-2">
-                    <input
-                      type="text"
-                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-                      value={item.description}
-                      onChange={(e) =>
-                        updateItemField(item.id, "description", e.target.value)
-                      }
-                      placeholder="Item / Number"
-                    />
-                  </td>
-                  <td className="py-1.5 px-2 text-right">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1 text-right focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-                      value={item.weight}
-                      onChange={(e) =>
-                        updateItemField(item.id, "weight", e.target.value)
-                      }
-                      placeholder="0.00"
-                    />
-                  </td>
-                  <td className="py-1.5 px-2 text-right">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1 text-right focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
-                      value={item.touch}
-                      onChange={(e) =>
-                        updateItemField(item.id, "touch", e.target.value)
-                      }
-                      placeholder="0.00"
-                    />
-                  </td>
-                  <td className="py-1.5 px-2 text-right text-slate-800 dark:text-slate-200">
-                    {Number(item.purity || 0).toFixed(2)}
-                  </td>
-                  <td className="py-1.5 px-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeItemRow(item.id)}
-                      className="text-[11px] text-red-500 hover:text-red-400"
+            <div className="overflow-auto">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] text-slate-500">
+                    <th className="py-1 px-2 text-left">Description / Number</th>
+                    <th className="py-1 px-2 text-right">Weight (g)</th>
+                    <th className="py-1 px-2 text-right">Touch (%)</th>
+                    <th className="py-1 px-2 text-right">Purity (g)</th>
+                    <th className="py-1 px-2 text-center w-10">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-slate-200 last:border-0"
                     >
-                      X
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <td className="py-1.5 px-2">
+                        <input
+                          type="text"
+                          className="w-full bg-white border border-slate-300 rounded-md px-2 py-1 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                          value={item.description}
+                          onChange={(e) =>
+                            updateItemField(
+                              item.id,
+                              "description",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Item / Number"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-full bg-white border border-slate-300 rounded-md px-2 py-1 text-right focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                          value={item.weight}
+                          onChange={(e) =>
+                            updateItemField(item.id, "weight", e.target.value)
+                          }
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-right">
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          className="w-full bg-white border border-slate-300 rounded-md px-2 py-1 text-right focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+                          value={item.touch}
+                          onChange={(e) =>
+                            updateItemField(item.id, "touch", e.target.value)
+                          }
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td className="py-1.5 px-2 text-right text-slate-800">
+                        {Number(item.purity || 0).toFixed(2)}
+                      </td>
+                      <td className="py-1.5 px-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeItemRow(item.id)}
+                          className="text-[11px] text-red-500 hover:text-red-400"
+                        >
+                          X
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        {/* Totals: sirf Total Purity */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs border-t border-slate-200 dark:border-slate-800 pt-3">
-          <div>
-            <div className="text-slate-700 dark:text-slate-300 mb-1">
-              Total Purity (g)
+        {/* RIGHT: Summary */}
+        <div className="lg:col-span-1">
+          <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-soft sticky top-4 space-y-2">
+            <div className="text-xs font-semibold text-slate-700 mb-1">
+              Bill Summary
             </div>
-            <div className="bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5">
-              {totalPurity.toFixed(2)}
+            <div className="text-[11px] text-slate-600 space-y-1 border-b border-slate-200 pb-2">
+              <div>
+                <span className="font-semibold">Customer:</span>{" "}
+                {customerName || "-"}
+              </div>
+              <div>
+                <span className="font-semibold">Mobile:</span>{" "}
+                {mobile || "-"}
+              </div>
+              <div>
+                <span className="font-semibold">Date:</span> {date}
+              </div>
+            </div>
+            <div className="text-[11px] text-slate-600 space-y-1">
+              <div>
+                <span className="font-semibold">Total Items:</span>{" "}
+                {nonEmptyItemsCount}
+              </div>
+              <div>
+                <span className="font-semibold">Total Weight:</span>{" "}
+                {totalWeight.toFixed(2)} g
+              </div>
+              <div>
+                <span className="font-semibold">Total Purity:</span>{" "}
+                {totalPurity.toFixed(2)} g
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex flex-wrap gap-2 justify-end text-xs">
+      {/* Action Buttons (bottom) */}
+      <div className="flex flex-wrap gap-2 justify-end text-xs pt-2 border-t border-slate-200">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-gradient-to-r from-rk-primary to-rk-accent text-white px-3 py-1.5 rounded-md font-semibold hover:from-rk-primaryDark hover:to-rk-accent disabled:opacity-70"
+          className="bg-gradient-to-r from-rk-primary to-rk-accent text-slate-900 px-3 py-1.5 rounded-md font-semibold hover:from-rk-primaryDark hover:to-rk-accent disabled:opacity-70"
         >
           {saving ? "Saving..." : "Save + Print"}
         </button>
         <button
           onClick={handlePrint}
-          className="border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded-md text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="border border-slate-300 px-3 py-1.5 rounded-md text-slate-800 hover:bg-slate-100"
         >
           Only Print
         </button>
         <button
           onClick={handleWhatsApp}
-          className="border border-green-500/60 text-green-700 dark:text-green-300 px-3 py-1.5 rounded-md hover:bg-green-50 dark:hover:bg-green-500/10"
+          className="border border-green-500/60 text-green-700 px-3 py-1.5 rounded-md hover:bg-green-50"
         >
           Send on WhatsApp
         </button>

@@ -1,4 +1,3 @@
-// src/pages/ReportsPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import jsPDF from "jspdf";
@@ -14,7 +13,7 @@ const SHOP_INFO_LINES = [
   "Prop: Anil   |   Mob: 9615889191, 7033654242",
 ];
 
-// Thermal style print helper
+// Thermal style print helper (Total Weight + Total Purity included)
 const openPrintForBill = (bill) => {
   if (!bill) return;
 
@@ -22,9 +21,19 @@ const openPrintForBill = (bill) => {
     (line) => `<div>${line}</div>`
   ).join("");
 
+  const items = bill.items || [];
+  const totalWeight = items.reduce(
+    (sum, it) => sum + (Number(it.weight) || 0),
+    0
+  );
+  const totalPurity = items.reduce(
+    (sum, it) => sum + (Number(it.purity) || 0),
+    0
+  );
+
   const itemsRows =
-    bill.items && bill.items.length
-      ? bill.items
+    items.length > 0
+      ? items
           .map(
             (it, idx) => `
       <tr>
@@ -44,8 +53,6 @@ const openPrintForBill = (bill) => {
           )
           .join("")
       : `<tr><td colspan="5">No items</td></tr>`;
-
-  const totalPurity = Number(bill.totalPurity || 0).toFixed(2);
 
   const html = `
 <html>
@@ -92,7 +99,8 @@ const openPrintForBill = (bill) => {
       </tbody>
     </table>
     <div class="small totals">
-      <div>Total Purity: <strong>${totalPurity} g</strong></div>
+      <div>Total Weight: <strong>${totalWeight.toFixed(2)} g</strong></div>
+      <div>Total Purity: <strong>${totalPurity.toFixed(2)} g</strong></div>
     </div>
     <div class="center small" style="margin-top:6px;">
       Thank You Visit Again
@@ -138,30 +146,32 @@ const ReportsPage = () => {
     }
   }, [billsLoaded, loadAllBills]);
 
-  const filteredBills = useMemo(() => {
-    return bills.filter((bill) => {
-      if (fromDate && bill.billDate < fromDate) return false;
-      if (toDate && bill.billDate > toDate) return false;
+  const filteredBills = useMemo(
+    () =>
+      bills.filter((bill) => {
+        if (fromDate && bill.billDate < fromDate) return false;
+        if (toDate && bill.billDate > toDate) return false;
 
-      if (
-        searchName &&
-        !(bill.customerName || "")
-          .toLowerCase()
-          .includes(searchName.trim().toLowerCase())
-      ) {
-        return false;
-      }
+        if (
+          searchName &&
+          !(bill.customerName || "")
+            .toLowerCase()
+            .includes(searchName.trim().toLowerCase())
+        ) {
+          return false;
+        }
 
-      if (
-        searchMobile &&
-        !(bill.mobile || "").includes(searchMobile.trim())
-      ) {
-        return false;
-      }
+        if (
+          searchMobile &&
+          !(bill.mobile || "").includes(searchMobile.trim())
+        ) {
+          return false;
+        }
 
-      return true;
-    });
-  }, [bills, fromDate, toDate, searchName, searchMobile]);
+        return true;
+      }),
+    [bills, fromDate, toDate, searchName, searchMobile]
+  );
 
   const totals = useMemo(
     () =>
@@ -176,6 +186,7 @@ const ReportsPage = () => {
     [filteredBills]
   );
 
+  // Excel: sare filtered bills + last row me totals
   const handleExportExcel = () => {
     if (!filteredBills.length) {
       Swal.fire({
@@ -191,16 +202,26 @@ const ReportsPage = () => {
       "Date",
       "Customer Name",
       "Mobile",
-      "Total Weight",
-      "Total Purity",
+      "Total Weight (g)",
+      "Total Purity (g)",
     ];
-    const rows = filteredBills.map((b) => [
+    const rows = filteredBills.map((b, idx) => [
       b.billNumber || b.id,
       b.billDate,
       b.customerName,
       b.mobile,
       Number(b.totalWeight || 0).toFixed(2),
       Number(b.totalPurity || 0).toFixed(2),
+    ]);
+
+    // Totals row
+    rows.push([
+      "",
+      "",
+      "TOTAL",
+      "",
+      totals.totalWeight.toFixed(2),
+      totals.totalPurity.toFixed(2),
     ]);
 
     const csvContent = [header, ...rows]
@@ -221,13 +242,13 @@ const ReportsPage = () => {
     Swal.fire({
       icon: "success",
       title: "Excel Exported",
-      text: "CSV file download ho gayi hai.",
+      text: "Sabhi bills + total summary export ho gaye.",
       timer: 1200,
       showConfirmButton: false,
     });
   };
 
-  // PDF: center shop name, plain grid table, sirf weight & purity
+  // PDF: plain grid, gold header, totals row inside table
   const handleExportPDF = () => {
     if (!filteredBills.length) {
       Swal.fire({
@@ -246,7 +267,7 @@ const ReportsPage = () => {
     doc.setFontSize(14);
     doc.text(SHOP_INFO_LINES[0], pageWidth / 2, 40, { align: "center" });
 
-    // Below address lines center, normal
+    // Address center
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     SHOP_INFO_LINES.slice(1).forEach((line, idx) => {
@@ -295,7 +316,6 @@ const ReportsPage = () => {
       ],
     ];
 
-    // Plain grid table (no colors), visible borders
     doc.autoTable({
       head,
       body,
@@ -305,8 +325,8 @@ const ReportsPage = () => {
       styles: {
         fontSize: 8,
         cellPadding: 3,
-        lineColor: [150, 150, 150],
-        lineWidth: 0.4,
+        lineColor: [0, 0, 0], // dark borders
+        lineWidth: 0.6,
       },
       headStyles: {
         fillColor: [255, 255, 255],
@@ -338,7 +358,7 @@ const ReportsPage = () => {
     Swal.fire({
       icon: "success",
       title: "PDF Exported",
-      text: "PDF file download ho gayi hai.",
+      text: "Sabhi bills + summary PDF me export ho gaye.",
       timer: 1200,
       showConfirmButton: false,
     });
@@ -412,62 +432,58 @@ const ReportsPage = () => {
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div>
-        <h1 className="text-base font-semibold text-silver">Reports</h1>
-        <p className="text-xs text-slate-600 dark:text-slate-400">
+        <h1 className="text-base font-semibold text-slate-800">Reports</h1>
+        <p className="text-xs text-slate-500">
           Sabhi bills filter karein, Excel/PDF export karein, aur individual bill
           dekhein / print / WhatsApp karein.
         </p>
       </div>
 
       {/* Filters */}
-      <div className="relative overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 space-y-3 text-xs shadow-soft dark:shadow-softDark">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rk-primary to-rk-accent" />
-        <div className="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 space-y-3 text-xs shadow-soft">
+        <div className="text-xs font-semibold text-slate-700">
           Filters
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-1">
           <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
-              Date From
-            </label>
+            <label className="block text-slate-700 mb-1">Date From</label>
             <input
               type="date"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+              className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
               value={fromDate}
               onChange={(e) => setFromDate(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
-              Date To
-            </label>
+            <label className="block text-slate-700 mb-1">Date To</label>
             <input
               type="date"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+              className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
               value={toDate}
               onChange={(e) => setToDate(e.target.value)}
             />
           </div>
           <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-slate-700 mb-1">
               Customer Name
             </label>
             <input
               type="text"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+              className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
               placeholder="Search name"
             />
           </div>
           <div>
-            <label className="block text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block text-slate-700 mb-1">
               Mobile Number
             </label>
             <input
               type="text"
-              className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
+              className="w-full bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:border-rk-primary focus:ring-1 focus:ring-rk-primary"
               value={searchMobile}
               onChange={(e) => setSearchMobile(e.target.value)}
               placeholder="Search mobile"
@@ -481,31 +497,31 @@ const ReportsPage = () => {
         <div className="flex gap-2">
           <button
             onClick={handleExportExcel}
-            className="border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded-md text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="border border-slate-300 px-3 py-1.5 rounded-md text-slate-800 hover:bg-slate-100"
           >
             Export Excel (CSV)
           </button>
           <button
             onClick={handleExportPDF}
-            className="border border-slate-300 dark:border-slate-700 px-3 py-1.5 rounded-md text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="border border-slate-300 px-3 py-1.5 rounded-md text-slate-800 hover:bg-slate-100"
           >
             Export PDF
           </button>
         </div>
-        <div className="text-[11px] text-slate-600 dark:text-slate-400 text-right">
+        <div className="text-[11px] text-slate-600 text-right">
           <div>
             Total Bills:{" "}
-            <span className="text-silver">{filteredBills.length}</span>
+            <span className="text-slate-900">{filteredBills.length}</span>
           </div>
           <div>
             Total Weight:{" "}
-            <span className="text-silver">
+            <span className="text-slate-900">
               {totals.totalWeight.toFixed(2)} g
             </span>
           </div>
           <div>
             Total Purity:{" "}
-            <span className="text-silver">
+            <span className="text-slate-900">
               {totals.totalPurity.toFixed(2)} g
             </span>
           </div>
@@ -513,11 +529,10 @@ const ReportsPage = () => {
       </div>
 
       {/* Table */}
-      <div className="relative overflow-hidden bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl overflow-auto text-xs shadow-soft dark:shadow-softDark">
-        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rk-accent to-rk-primary" />
-        <table className="min-w-full mt-2">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-auto text-xs shadow-soft">
+        <table className="min-w-full">
           <thead>
-            <tr className="border-b border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400">
+            <tr className="border-b border-slate-200 text-[11px] text-slate-500">
               <th className="py-1.5 px-2 text-left">Bill No</th>
               <th className="py-1.5 px-2 text-left">Date</th>
               <th className="py-1.5 px-2 text-left">Customer</th>
@@ -531,7 +546,7 @@ const ReportsPage = () => {
             {filteredBills.map((bill) => (
               <tr
                 key={bill.id}
-                className="border-b border-slate-200 dark:border-slate-800 last:border-0"
+                className="border-b border-slate-200 last:border-0"
               >
                 <td className="py-1.5 px-2">{bill.billNumber || bill.id}</td>
                 <td className="py-1.5 px-2">{bill.billDate}</td>
@@ -546,7 +561,7 @@ const ReportsPage = () => {
                 <td className="py-1.5 px-2 text-center">
                   <button
                     onClick={() => loadBillDetails(bill)}
-                    className="px-2 py-0.5 border border-slate-300 dark:border-slate-700 rounded-md text-[11px] hover:bg-slate-100 dark:hover:bg-slate-800"
+                    className="px-2 py-0.5 border border-slate-300 rounded-md text-[11px] hover:bg-slate-100"
                   >
                     View
                   </button>
@@ -570,15 +585,15 @@ const ReportsPage = () => {
       {/* Bill Detail Modal */}
       {selectedBill && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="relative overflow-hidden bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl w-full max-w-md p-4 text-xs shadow-soft dark:shadow-softDark">
+          <div className="relative overflow-hidden bg-white border border-slate-300 rounded-xl w-full max-w-md p-4 text-xs shadow-soft">
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rk-primary to-rk-accent" />
             <div className="mt-1 flex justify-between items-center mb-2">
-              <div className="font-semibold text-slate-800 dark:text-slate-100">
+              <div className="font-semibold text-slate-800">
                 Bill Details ({selectedBill.billNumber || selectedBill.id})
               </div>
               <button
                 onClick={() => setSelectedBill(null)}
-                className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
+                className="text-[11px] text-slate-500 hover:text-slate-900"
               >
                 ✕
               </button>
@@ -590,22 +605,22 @@ const ReportsPage = () => {
               </div>
             ) : (
               <>
-                <div className="text-[11px] text-slate-700 dark:text-slate-300 mb-2">
+                <div className="text-[11px] text-slate-700 mb-2">
                   {SHOP_INFO_LINES.map((line) => (
                     <div key={line}>{line}</div>
                   ))}
                 </div>
 
-                <div className="text-[11px] text-slate-600 dark:text-slate-400 mb-2 space-y-0.5">
+                <div className="text-[11px] text-slate-600 mb-2 space-y-0.5">
                   <div>Bill No: {selectedBill.billNumber || selectedBill.id}</div>
                   <div>Date: {selectedBill.billDate}</div>
                   <div>Customer: {selectedBill.customerName}</div>
                   <div>Mobile: {selectedBill.mobile}</div>
                 </div>
 
-                <div className="max-h-40 overflow-auto border border-slate-200 dark:border-slate-800 rounded-md mb-2">
+                <div className="max-h-40 overflow-auto border border-slate-200 rounded-md mb-2">
                   <table className="w-full text-[11px]">
-                    <thead className="bg-slate-100 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400">
+                    <thead className="bg-slate-50 text-slate-500">
                       <tr>
                         <th className="px-2 py-1 text-left">#</th>
                         <th className="px-2 py-1 text-left">Item</th>
@@ -616,10 +631,7 @@ const ReportsPage = () => {
                     </thead>
                     <tbody>
                       {(selectedBill.items || []).map((i, idx) => (
-                        <tr
-                          key={idx}
-                          className="border-t border-slate-200 dark:border-slate-800"
-                        >
+                        <tr key={idx} className="border-t border-slate-200">
                           <td className="px-2 py-1">{idx + 1}</td>
                           <td className="px-2 py-1">{i.description}</td>
                           <td className="px-2 py-1 text-right">
@@ -648,7 +660,7 @@ const ReportsPage = () => {
                   </table>
                 </div>
 
-                <div className="text-[11px] text-slate-700 dark:text-slate-300 mb-3">
+                <div className="text-[11px] text-slate-700 mb-3">
                   Total Purity:{" "}
                   <span className="font-semibold">
                     {Number(selectedBill.totalPurity || 0).toFixed(2)} g
@@ -658,13 +670,13 @@ const ReportsPage = () => {
                 <div className="flex justify-end gap-2 text-[11px]">
                   <button
                     onClick={() => openPrintForBill(selectedBill)}
-                    className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-md text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    className="px-3 py-1 border border-slate-300 rounded-md text-slate-800 hover:bg-slate-100"
                   >
                     Print
                   </button>
                   <button
                     onClick={() => sendWhatsAppForBill(selectedBill)}
-                    className="px-3 py-1 border border-green-500/60 text-green-700 dark:text-green-300 rounded-md hover:bg-green-50 dark:hover:bg-green-500/10"
+                    className="px-3 py-1 border border-green-500/60 text-green-700 rounded-md hover:bg-green-50"
                   >
                     WhatsApp
                   </button>

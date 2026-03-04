@@ -1,3 +1,4 @@
+// src/pages/DashboardPage.jsx
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useData } from "../context/DataContext.jsx";
@@ -14,6 +15,7 @@ const DashboardPage = () => {
   } = useData();
   const navigate = useNavigate();
 
+  // Backend se data load
   useEffect(() => {
     if (!billsLoaded) {
       loadAllBills();
@@ -26,19 +28,16 @@ const DashboardPage = () => {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const {
-    totalBillsTodayCalc,
+    todayBillsCountCalc,
     todayWeightCalc,
-    todayAmountCalc,
+    allBillsCount,
     recentBills,
   } = useMemo(() => {
     const todayBills = bills.filter((b) => b.billDate === todayStr);
-    const totalBillsTodayCalc = todayBills.length;
+
+    const todayBillsCountCalc = todayBills.length;
     const todayWeightCalc = todayBills.reduce(
       (sum, b) => sum + (b.totalWeight || 0),
-      0
-    );
-    const todayAmountCalc = todayBills.reduce(
-      (sum, b) => sum + (b.totalAmount || 0),
       0
     );
 
@@ -47,36 +46,41 @@ const DashboardPage = () => {
     );
     const recentBills = sorted.slice(0, 5);
 
-    return { totalBillsTodayCalc, todayWeightCalc, todayAmountCalc, recentBills };
+    return {
+      todayBillsCountCalc,
+      todayWeightCalc,
+      allBillsCount: bills.length,
+      recentBills,
+    };
   }, [bills, todayStr]);
 
+  // Backend summary validate karein (agar hai to use karo)
   const totalBillsToday =
-    todaySummary?.totalBillsToday ?? totalBillsTodayCalc;
+    todaySummary?.totalBillsToday ?? todayBillsCountCalc;
   const todayWeight =
     todaySummary?.totalWeight ?? todayWeightCalc;
-  const todayAmount =
-    todaySummary?.totalAmount ?? todayAmountCalc;
 
   return (
     <div className="space-y-4">
+      {/* Header + CTA */}
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-base font-semibold text-silver">
+          <h1 className="text-base font-semibold text-slate-800">
             Dashboard Overview
           </h1>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
+          <p className="text-xs text-slate-500">
             Daily silver exchange summary aur monthly trend ek hi jagah.
           </p>
         </div>
         <button
           onClick={() => navigate("/billing")}
-          className="inline-flex items-center gap-1 bg-gradient-to-r from-rk-primary to-rk-accent text-xs font-semibold text-white px-3 py-1.5 rounded-md hover:from-rk-primaryDark hover:to-rk-accent transition-colors"
+          className="inline-flex items-center gap-1 bg-gradient-to-r from-rk-primary to-rk-primaryDark text-xs font-semibold text-slate-900 px-4 py-2 rounded-md shadow-soft hover:from-rk-primaryDark hover:to-rk-primary transition-colors"
         >
           + Add New Bill
         </button>
       </div>
 
-      {/* Stats Row */}
+      {/* Stats Row (Amount card removed) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatsCard
           label="Total Bills - Today"
@@ -89,24 +93,26 @@ const DashboardPage = () => {
           subLabel="Aaj ka total weight"
         />
         <StatsCard
-          label="Today Total Amount (₹)"
-          value={`₹${todayAmount.toLocaleString("en-IN")}`}
-          subLabel="Static rate per gram ke hisaab se"
+          label="Total Bills - All Time"
+          value={allBillsCount}
+          subLabel="System me ab tak ke sabhi bills"
         />
       </div>
 
-      {/* Middle row: Chart + Recent Bills */}
+      {/* Chart + Recent Bills */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Chart */}
         <div className="lg:col-span-2">
           <SalesChart bills={bills} />
         </div>
 
-        <div className="bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-soft dark:shadow-softDark">
+        {/* Recent Bills */}
+        <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-soft">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <div className="text-xs font-semibold text-slate-700">
               Recent Bills
             </div>
-            <div className="text-[11px] text-slate-500 dark:text-slate-500">
+            <div className="text-[11px] text-slate-500">
               Last {recentBills.length} records
             </div>
           </div>
@@ -114,28 +120,29 @@ const DashboardPage = () => {
             {recentBills.map((bill) => (
               <div
                 key={bill.id}
-                className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-1 last:border-0"
+                className="flex items-center justify-between border-b border-slate-200 pb-1 last:border-0"
               >
-                <div>
-                  <div className="font-medium text-slate-800 dark:text-silver text-[11px]">
+                <div className="flex flex-col">
+                  <span className="font-medium text-slate-800 text-[11px]">
                     {bill.billNumber || bill.id}
-                  </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  </span>
+                  <span className="text-[11px] text-slate-500">
                     Date: {bill.billDate}
-                  </div>
+                  </span>
                 </div>
                 <div className="text-right">
-                  <div className="text-[11px] text-slate-700 dark:text-slate-300">
+                  <div className="text-[11px] text-slate-700">
                     {Number(bill.totalWeight || 0).toFixed(2)} g
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {/* Agar yahan amount bhi nahi chahiye to ye line hata sakte ho */}
+                  {/* <div className="text-[11px] text-slate-500">
                     ₹{Number(bill.totalAmount || 0).toLocaleString("en-IN")}
-                  </div>
+                  </div> */}
                 </div>
               </div>
             ))}
-            {recentBills.length === 0 && (
-              <div className="text-[11px] text-slate-500 dark:text-slate-500 text-center py-6">
+            {!recentBills.length && (
+              <div className="text-[11px] text-slate-500 text-center py-6">
                 No bills yet. Create a new bill from Billing page.
               </div>
             )}
